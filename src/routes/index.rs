@@ -1,8 +1,7 @@
 use crate::{
     config::load_services_config,
-    models::service::{ServiceConfig, ServiceView},
-    models::tailscale::DeviceView,
-    tailscale::{get_tailscale_status, group_by_user},
+    tailscale::get_tailscale_status,
+    views::{DeviceView, ServiceView, extract_all_services, group_by_user},
 };
 use askama::Template;
 use axum::response::Html;
@@ -32,36 +31,6 @@ pub async fn serve() -> Html<String> {
             Html("Error loading services config".into())
         }
     }
-}
-
-fn extract_all_services(
-    groups: &BTreeMap<String, Vec<DeviceView>>,
-    svc_cfg: &ServiceConfig,
-) -> Vec<ServiceView> {
-    let mut quick = Vec::new();
-
-    for s in &svc_cfg.service {
-        if let Some((owner, devices)) = groups
-            .iter()
-            .find(|(_, devs)| devs.iter().any(|d| d.host_name == s.host))
-        {
-            if let Some(dev) = devices.iter().find(|d| d.host_name == s.host && d.online) {
-                let url = match (&s.url, s.port) {
-                    (Some(u), _) => u.clone(),
-                    (None, Some(port)) => format!("http://{}:{}", dev.ip, port),
-                    _ => format!("http://{}", dev.ip),
-                };
-
-                quick.push(ServiceView {
-                    name: s.name.clone(),
-                    owner: owner.clone(),
-                    url,
-                });
-            }
-        }
-    }
-
-    quick
 }
 
 #[derive(Template)]

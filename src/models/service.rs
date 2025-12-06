@@ -1,12 +1,5 @@
 use serde::Deserialize;
 
-#[derive(Clone)]
-pub struct ServiceView {
-    pub name: String,
-    pub owner: String,
-    pub url: String,
-}
-
 #[derive(Debug, Deserialize, Clone, serde::Serialize)]
 pub struct ServiceConfig {
     pub service: Vec<ServiceEntry>,

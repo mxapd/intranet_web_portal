@@ -1,4 +1,4 @@
-use crate::models::service::ServiceView;
+use crate::views::ServiceView;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -40,14 +40,4 @@ pub struct User {
     pub login_name: Option<String>,
     #[serde(rename = "DisplayName")]
     pub display_name: Option<String>,
-}
-
-#[derive(Clone)]
-pub struct DeviceView {
-    pub host_name: String,
-    pub ip: String,
-    pub os: String,
-    pub online: bool,
-    pub services: Vec<ServiceView>,
-    pub internal_services: Vec<ServiceView>,
 }

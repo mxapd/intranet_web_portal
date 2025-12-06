@@ -1,5 +1,6 @@
 mod config;
 mod tailscale;
+mod views;
 mod routes {
     pub mod index;
     pub mod manage;
