@@ -1,0 +1,1 @@
+/home/xam/intranet_web_portal/target/debug/intranet_web_portal: /home/xam/intranet_web_portal/src/main.rs /home/xam/intranet_web_portal/templates/index.html /home/xam/intranet_web_portal/templates/manage.html
