@@ -1,5 +1,5 @@
-use crate::views::ServiceView;
-use serde::Deserialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -30,6 +30,8 @@ pub struct Device {
     pub online: Option<bool>,
     #[serde(rename = "PeerAPIURL")]
     pub peer_api_url: Option<Vec<String>>,
+    #[serde(rename = "LastSeen", deserialize_with = "parse_opt_datetime")]
+    pub last_seen: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -40,4 +42,21 @@ pub struct User {
     pub login_name: Option<String>,
     #[serde(rename = "DisplayName")]
     pub display_name: Option<String>,
+}
+
+pub fn parse_opt_datetime<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    if let Some(ref val) = s {
+        // Treat the ancient default as "None"
+        if val.starts_with("0001-01-01") {
+            return Ok(None);
+        }
+        return DateTime::parse_from_rfc3339(val)
+            .map(|dt| Some(dt.with_timezone(&Utc)))
+            .map_err(serde::de::Error::custom);
+    }
+    Ok(None)
 }

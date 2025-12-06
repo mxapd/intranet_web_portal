@@ -206,7 +206,16 @@
             <small>{{ d.ip }} — {{ d.os }}</small>
             <div class="status">
               <div class="status-dot {% if d.online %}online{% else %}offline{% endif %}"></div>
-              <span>{% if d.online %}online{% else %}offline{% endif %}</span>
+              <span>
+		{% if d.online %}
+		  online
+		{% else %}
+		  offline
+		  {% if d.last_seen %}
+		    <br><small>Last seen: {{ d.last_seen }}</small>
+		  {% endif %}
+		{% endif %}
+	      </span>
             </div>
           </div>
           {% if d.services.len() > 0 %}

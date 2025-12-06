@@ -35,7 +35,7 @@ pub async fn serve() -> Html<String> {
 
 #[derive(Template)]
 #[template(path = "index.html")]
-struct PortalTemplate<'a> {
-    users: &'a BTreeMap<String, Vec<DeviceView>>,
-    quick_services: &'a Vec<ServiceView>,
+pub struct PortalTemplate<'a> {
+    pub users: &'a BTreeMap<String, Vec<DeviceView>>,
+    pub quick_services: &'a Vec<ServiceView>,
 }

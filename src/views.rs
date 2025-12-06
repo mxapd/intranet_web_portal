@@ -15,6 +15,7 @@ pub struct DeviceView {
     pub ip: String,
     pub os: String,
     pub online: bool,
+    pub last_seen: Option<String>,
     pub services: Vec<ServiceView>,
     pub internal_services: Vec<ServiceView>,
 }
@@ -88,6 +89,9 @@ pub fn group_by_user(
                     .unwrap_or_else(|| "?".into()),
                 os: dev.os.clone().unwrap_or_else(|| "unknown".into()),
                 online: dev.online.unwrap_or(false),
+                last_seen: dev
+                    .last_seen
+                    .map(|t| t.format("%Y-%m-%d %H:%M:%S UTC").to_string()),
                 services,
                 internal_services,
             };
