@@ -96,6 +96,14 @@ pub fn group_by_user(
         }
     }
 
+    for devices in map.values_mut() {
+        devices.sort_by(|a, b| {
+            b.online
+                .cmp(&a.online)
+                .then_with(|| a.host_name.cmp(&b.host_name))
+        });
+    }
+
     map
 }
 
