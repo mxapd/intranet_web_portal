@@ -1,5 +1,11 @@
 use askama::Template;
-use axum::{Router, response::Html, routing::get};
+use axum::{
+    Router,
+    extract::Form,
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect},
+    routing::{get, post},
+};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::process::Stdio;
@@ -7,13 +13,17 @@ use tokio::{io::AsyncReadExt, process::Command};
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().route("/", get(serve_index));
+    let app = Router::new()
+        .route("/", get(serve_index))
+        .route("/manage", get(serve_manage))
+        .route("/add-service", post(add_service))
+        .route("/remove-service", post(remove_service));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3003").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-// ===== ROUTE HANDLER =====
+// ===== ROUTE HANDLERS =====
 async fn serve_index() -> Html<String> {
     match (get_tailscale_status().await, load_services_config()) {
         (Ok(status), Ok(services_cfg)) => {
@@ -36,6 +46,111 @@ async fn serve_index() -> Html<String> {
         (_, Err(e)) => {
             eprintln!("Error loading services config: {e}");
             Html("Error loading services config".into())
+        }
+    }
+}
+
+async fn serve_manage() -> Html<String> {
+    match (get_tailscale_status().await, load_services_config()) {
+        (Ok(status), Ok(services_cfg)) => {
+            // Extract all hostnames from devices
+            let mut hosts = Vec::new();
+            if let Some(self_dev) = &status.self_device {
+                if let Some(hostname) = &self_dev.host_name {
+                    hosts.push(hostname.clone());
+                }
+            }
+            if let Some(peers) = &status.peers {
+                for dev in peers.values() {
+                    if let Some(hostname) = &dev.host_name {
+                        if dev.online.unwrap_or(false) {
+                            hosts.push(hostname.clone());
+                        }
+                    }
+                }
+            }
+            hosts.sort();
+            hosts.dedup();
+
+            let template = ManageTemplate {
+                services: &services_cfg.service,
+                available_hosts: &hosts,
+            };
+            Html(
+                template
+                    .render()
+                    .unwrap_or_else(|_| "Template render error".to_string()),
+            )
+        }
+        (Err(e), _) => {
+            eprintln!("Error fetching Tailscale data: {e}");
+            Html("Error fetching data".into())
+        }
+        (_, Err(e)) => {
+            eprintln!("Error loading services config: {e}");
+            Html("Error loading services config".into())
+        }
+    }
+}
+
+async fn add_service(Form(input): Form<AddServiceForm>) -> impl IntoResponse {
+    match load_services_config() {
+        Ok(mut config) => {
+            // Create new service entry
+            let new_service = ServiceEntry {
+                host: input.host,
+                name: input.name,
+                port: if input.port > 0 {
+                    Some(input.port)
+                } else {
+                    None
+                },
+                url: if input.url.is_empty() {
+                    None
+                } else {
+                    Some(input.url)
+                },
+            };
+
+            config.service.push(new_service);
+
+            // Save back to file
+            match save_services_config(&config) {
+                Ok(_) => Redirect::to("/manage").into_response(),
+                Err(e) => {
+                    eprintln!("Error saving config: {e}");
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Failed to save config").into_response()
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error loading config: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load config").into_response()
+        }
+    }
+}
+
+async fn remove_service(Form(input): Form<RemoveServiceForm>) -> impl IntoResponse {
+    match load_services_config() {
+        Ok(mut config) => {
+            // Remove service at the given index
+            if input.index < config.service.len() {
+                config.service.remove(input.index);
+
+                match save_services_config(&config) {
+                    Ok(_) => Redirect::to("/manage").into_response(),
+                    Err(e) => {
+                        eprintln!("Error saving config: {e}");
+                        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to save config").into_response()
+                    }
+                }
+            } else {
+                (StatusCode::BAD_REQUEST, "Invalid service index").into_response()
+            }
+        }
+        Err(e) => {
+            eprintln!("Error loading config: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to load config").into_response()
         }
     }
 }
@@ -63,12 +178,25 @@ fn load_services_config() -> anyhow::Result<ServiceConfig> {
     Ok(config)
 }
 
-// ===== TEMPLATE =====
+fn save_services_config(config: &ServiceConfig) -> anyhow::Result<()> {
+    let toml_string = toml::to_string_pretty(config)?;
+    std::fs::write("config/services.toml", toml_string)?;
+    Ok(())
+}
+
+// ===== TEMPLATES =====
 #[derive(Template)]
 #[template(path = "index.html")]
 struct PortalTemplate<'a> {
     users: &'a BTreeMap<String, Vec<DeviceView>>,
     quick_services: &'a Vec<ServiceView>,
+}
+
+#[derive(Template)]
+#[template(path = "manage.html")]
+struct ManageTemplate<'a> {
+    services: &'a Vec<ServiceEntry>,
+    available_hosts: &'a Vec<String>,
 }
 
 // ===== GROUPING =====
@@ -94,7 +222,6 @@ fn group_by_user(
                 .and_then(|u| u.login_name.clone())
                 .unwrap_or_else(|| "unknown".to_string());
 
-            // normal services loaded from config
             let services = svc_cfg
                 .service
                 .iter()
@@ -110,7 +237,7 @@ fn group_by_user(
                     let url = match (&s.url, s.port) {
                         (Some(u), _) => u.clone(),
                         (None, Some(port)) => format!("http://{}:{}", ip, port),
-                        _ => format!("http://{}", ip), // fallback
+                        _ => format!("http://{}", ip),
                     };
 
                     ServiceView {
@@ -120,9 +247,8 @@ fn group_by_user(
                     }
                 })
                 .collect::<Vec<_>>();
-            // internal utilities (Peer API, debugging)
-            let mut internal_services = Vec::new();
 
+            let mut internal_services = Vec::new();
             if let Some(urls) = dev.peer_api_url.as_ref() {
                 if let Some(u) = urls.iter().find(|x| x.starts_with("http://100.")) {
                     internal_services.push(ServiceView {
@@ -161,19 +287,16 @@ fn extract_all_services(
 ) -> Vec<ServiceView> {
     let mut quick = Vec::new();
 
-    // Iterate through configured services
     for s in &svc_cfg.service {
-        // Find which user owns this host
         if let Some((owner, devices)) = groups
             .iter()
             .find(|(_, devs)| devs.iter().any(|d| d.host_name == s.host))
         {
-            // Find the matching device
             if let Some(dev) = devices.iter().find(|d| d.host_name == s.host && d.online) {
                 let url = match (&s.url, s.port) {
-                    (Some(u), _) => u.clone(), // defined in config
-                    (None, Some(port)) => format!("http://{}:{}", dev.ip, port), // build dynamically
-                    _ => format!("http://{}", dev.ip),                           // fallback
+                    (Some(u), _) => u.clone(),
+                    (None, Some(port)) => format!("http://{}:{}", dev.ip, port),
+                    _ => format!("http://{}", dev.ip),
                 };
 
                 quick.push(ServiceView {
@@ -246,19 +369,34 @@ pub struct User {
     pub display_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, serde::Serialize)]
 pub struct ServiceConfig {
     pub service: Vec<ServiceEntry>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, serde::Serialize)]
 pub struct ServiceEntry {
     pub host: String,
     pub name: String,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddServiceForm {
+    pub host: String,
+    pub name: String,
+    #[serde(default)]
+    pub port: u16,
+    #[serde(default)]
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RemoveServiceForm {
+    pub index: usize,
 }

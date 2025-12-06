@@ -26,11 +26,25 @@
         background: #202020;
         border-bottom: 2px solid var(--border);
         padding: 0.8rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
       header h1 {
         margin: 0;
         font-size: 1.4rem;
         font-weight: 600;
+        color: var(--accent-green);
+      }
+      .manage-link {
+        color: var(--accent-brown);
+        text-decoration: none;
+        padding: 0.4rem 0.8rem;
+        border: 1px solid var(--border);
+        background: var(--highlight);
+      }
+      .manage-link:hover {
+        background: var(--border);
         color: var(--accent-green);
       }
       main {
@@ -148,6 +162,11 @@
         margin-top: 2rem;
       }
       @media (max-width: 600px) {
+        header {
+          flex-direction: column;
+          gap: 0.5rem;
+          align-items: flex-start;
+        }
         .device-header {
           flex-direction: column;
           align-items: flex-start;
@@ -159,7 +178,10 @@
     </style>
   </head>
   <body>
-    <header><h1>stuff and things</h1></header>
+    <header>
+      <h1>stuff and things</h1>
+      <a href="/manage" class="manage-link">⚙ manage</a>
+    </header>
 
     <main>
       <div class="quickview">

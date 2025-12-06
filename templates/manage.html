@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>manage services</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #1b1b1b;
+        --panel-bg: #262626;
+        --text: #ddddcc;
+        --muted: #888870;
+        --border: #3a3a3a;
+        --accent-green: #7fbf7f;
+        --accent-brown: #c2a15d;
+        --accent-red: #c05b5b;
+        --highlight: #333;
+      }
+      body {
+        margin: 0;
+        font-family: "Fira Code", "Courier New", monospace;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: #202020;
+        border-bottom: 2px solid var(--border);
+        padding: 0.8rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--accent-green);
+      }
+      .back-link {
+        color: var(--accent-brown);
+        text-decoration: none;
+        padding: 0.4rem 0.8rem;
+        border: 1px solid var(--border);
+        background: var(--highlight);
+      }
+      .back-link:hover {
+        background: var(--border);
+        color: var(--accent-green);
+      }
+      main {
+        max-width: 900px;
+        margin: 1.2rem auto;
+        padding: 0 1rem;
+      }
+      .section {
+        background: var(--panel-bg);
+        border: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+      }
+      .section h2 {
+        color: var(--accent-brown);
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.4rem;
+      }
+      form {
+        display: grid;
+        gap: 0.8rem;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      label {
+        color: var(--accent-brown);
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+      input, select {
+        background: var(--highlight);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 0.5rem;
+        font-family: inherit;
+        font-size: 0.9rem;
+      }
+      input:focus, select:focus {
+        outline: none;
+        border-color: var(--accent-green);
+      }
+      button {
+        background: var(--accent-green);
+        color: var(--bg);
+        border: none;
+        padding: 0.6rem 1rem;
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 0.5rem;
+      }
+      button:hover {
+        background: var(--accent-brown);
+      }
+      .help-text {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 0.2rem;
+      }
+      .services-list {
+        display: grid;
+        gap: 0.5rem;
+      }
+      .service-item {
+        background: var(--highlight);
+        border: 1px solid var(--border);
+        padding: 0.6rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .service-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+      }
+      .service-name {
+        color: var(--accent-green);
+        font-weight: 600;
+      }
+      .service-details {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .remove-btn {
+        background: var(--accent-red);
+        color: var(--text);
+        border: none;
+        padding: 0.4rem 0.6rem;
+        font-family: inherit;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .remove-btn:hover {
+        background: #d07070;
+      }
+      @media (max-width: 600px) {
+        header {
+          flex-direction: column;
+          gap: 0.5rem;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>manage services</h1>
+      <a href="/" class="back-link">← back to portal</a>
+    </header>
+
+    <main>
+      <!-- Add Service Form -->
+      <div class="section">
+        <h2>add new service</h2>
+        <form method="post" action="/add-service">
+          <div class="form-group">
+            <label for="host">Host</label>
+            <select id="host" name="host" required>
+              <option value="">-- select a host --</option>
+              {% for h in available_hosts %}
+              <option value="{{ h }}">{{ h }}</option>
+              {% endfor %}
+            </select>
+            <span class="help-text">Select the Tailscale device hosting this service</span>
+          </div>
+
+          <div class="form-group">
+            <label for="name">Service Name</label>
+            <input type="text" id="name" name="name" required placeholder="e.g., Jellyfin, Plex, etc." />
+            <span class="help-text">Display name for the service</span>
+          </div>
+
+          <div class="form-group">
+            <label for="port">Port (optional)</label>
+            <input type="number" id="port" name="port" placeholder="e.g., 8096" min="1" max="65535" />
+            <span class="help-text">Leave empty if using a custom URL</span>
+          </div>
+
+          <div class="form-group">
+            <label for="url">Custom URL (optional)</label>
+            <input type="text" id="url" name="url" placeholder="e.g., https://custom-domain.com" />
+            <span class="help-text">Full URL - overrides port if provided</span>
+          </div>
+
+          <button type="submit">add service</button>
+        </form>
+      </div>
+
+      <!-- Current Services -->
+      <div class="section">
+        <h2>current services ({{ services.len() }})</h2>
+        <div class="services-list">
+          {% for (idx, s) in services.iter().enumerate() %}
+          <div class="service-item">
+            <div class="service-info">
+              <span class="service-name">{{ s.name }}</span>
+              <span class="service-details">
+                host: {{ s.host }}
+                {% if let Some(port) = s.port %}
+                | port: {{ port }}
+                {% endif %}
+                {% if let Some(url) = &s.url %}
+                | url: {{ url }}
+                {% endif %}
+              </span>
+            </div>
+            <form method="post" action="/remove-service" style="margin: 0;">
+              <input type="hidden" name="index" value="{{ idx }}" />
+              <button type="submit" class="remove-btn" onclick="return confirm('Remove {{ s.name }}?');">remove</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

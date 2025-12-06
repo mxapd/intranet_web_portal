@@ -1,4 +1,3 @@
-# services visible in the portal
 [[service]]
 host = "ancient"
 name = "Jellyfin"
