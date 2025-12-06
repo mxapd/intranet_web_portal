@@ -18,7 +18,7 @@ async fn serve_index() -> Html<String> {
     match (get_tailscale_status().await, load_services_config()) {
         (Ok(status), Ok(services_cfg)) => {
             let grouped = group_by_user(&status, &services_cfg);
-            let quick_services = extract_all_services(&grouped, &services_cfg); // ✅ here
+            let quick_services = extract_all_services(&grouped, &services_cfg);
             let template = PortalTemplate {
                 users: &grouped,
                 quick_services: &quick_services,
@@ -99,13 +99,27 @@ fn group_by_user(
                 .service
                 .iter()
                 .filter(|s| s.host == dev.host_name.clone().unwrap_or_default())
-                .map(|s| ServiceView {
-                    name: s.name.clone(),
-                    owner: uname.clone(),
-                    url: s.url.clone(),
+                .map(|s| {
+                    let ip = dev
+                        .ips
+                        .as_ref()
+                        .and_then(|v| v.iter().find(|ip| ip.starts_with("100.")))
+                        .cloned()
+                        .unwrap_or_else(|| "?".to_string());
+
+                    let url = match (&s.url, s.port) {
+                        (Some(u), _) => u.clone(),
+                        (None, Some(port)) => format!("http://{}:{}", ip, port),
+                        _ => format!("http://{}", ip), // fallback
+                    };
+
+                    ServiceView {
+                        name: s.name.clone(),
+                        owner: uname.clone(),
+                        url,
+                    }
                 })
                 .collect::<Vec<_>>();
-
             // internal utilities (Peer API, debugging)
             let mut internal_services = Vec::new();
 
@@ -156,10 +170,16 @@ fn extract_all_services(
         {
             // Find the matching device
             if let Some(dev) = devices.iter().find(|d| d.host_name == s.host && d.online) {
+                let url = match (&s.url, s.port) {
+                    (Some(u), _) => u.clone(), // defined in config
+                    (None, Some(port)) => format!("http://{}:{}", dev.ip, port), // build dynamically
+                    _ => format!("http://{}", dev.ip),                           // fallback
+                };
+
                 quick.push(ServiceView {
                     name: s.name.clone(),
                     owner: owner.clone(),
-                    url: s.url.clone(),
+                    url,
                 });
             }
         }
@@ -235,5 +255,10 @@ pub struct ServiceConfig {
 pub struct ServiceEntry {
     pub host: String,
     pub name: String,
-    pub url: String,
+
+    #[serde(default)]
+    pub port: Option<u16>,
+
+    #[serde(default)]
+    pub url: Option<String>,
 }

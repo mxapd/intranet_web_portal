@@ -2,4 +2,4 @@
 [[service]]
 host = "ancient"
 name = "Jellyfin"
-url = "http://100.64.0.14:8096"
+port = 8096
