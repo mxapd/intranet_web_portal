@@ -159,7 +159,7 @@
   <body>
     <header>
       <h1>manage services</h1>
-      <a href="/" class="back-link">← back to portal</a>
+      <a href="/" class="back-link">back to portal</a>
     </header>
 
     <main>
@@ -175,25 +175,24 @@
               <option value="{{ h }}">{{ h }}</option>
               {% endfor %}
             </select>
-            <span class="help-text">Select the Tailscale device hosting this service</span>
           </div>
 
           <div class="form-group">
             <label for="name">Service Name</label>
-            <input type="text" id="name" name="name" required placeholder="e.g., Jellyfin, Plex, etc." />
+            <input type="text" id="name" name="name" required/>
             <span class="help-text">Display name for the service</span>
           </div>
 
           <div class="form-group">
-            <label for="port">Port (optional)</label>
-            <input type="number" id="port" name="port" placeholder="e.g., 8096" min="1" max="65535" />
+            <label for="port">Port</label>
+            <input type="number" id="port" name="port" min="1" max="65535" required/>
             <span class="help-text">Leave empty if using a custom URL</span>
           </div>
 
           <div class="form-group">
             <label for="url">Custom URL (optional)</label>
-            <input type="text" id="url" name="url" placeholder="e.g., https://custom-domain.com" />
-            <span class="help-text">Full URL - overrides port if provided</span>
+            <input type="text" id="url" name="url"/>
+            <span class="help-text">Full URL, overrides port if provided</span>
           </div>
 
           <button type="submit">add service</button>
