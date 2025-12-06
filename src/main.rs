@@ -9,7 +9,7 @@ use tokio::{io::AsyncReadExt, process::Command};
 async fn main() {
     let app = Router::new().route("/", get(serve_index));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3003").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
